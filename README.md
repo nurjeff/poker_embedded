@@ -34,6 +34,8 @@ The wiring is done like this:
 
 ![Wiring](https://github.com/nurjeff/poker_embedded/blob/main/circuit.png?raw=true)
 
+The Pi is connected to power via USB PD and connected to the TV via HDMI. Nothing fancy.
+
 The Arduino is controlled via serial and animates the leds, since the WS2812 led strips are individually addressable.
 
 This is definitely not a best-pratice project, in fact the whole code is obviously pretty hacky and dirty since i just did this for fun over the holidays and also as a christmas present. But maybe it serves as inspiration!
