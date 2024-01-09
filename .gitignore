@@ -1,0 +1,6 @@
+*.json
+*.wav
+*.sh
+*.jpg
+/sounds
+/assets
