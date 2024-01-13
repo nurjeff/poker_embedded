@@ -67,18 +67,18 @@ void setup()
     tcpServer.begin();
 }
 
-/**
- * Collect lines of text.
- * Call this function repeatedly until it returns true, which indicates
- * that you have now a line of text in the buffer. If the line does not fit
- * (buffer to small), it will be truncated.
- *
- * @param source The source stream.
- * @param buffer Target buffer, must contain '\0' initiallly before calling this function.
- * @param bufSize Size of the target buffer.
- * @param terminator The last character that shall be read, usually '\n'.
- * @return True if the terminating character was received.
- */
+///@brief
+///Collect lines of text.
+///Call this function repeatedly until it returns true, which indicates
+///that you have now a line of text in the buffer. If the line does not fit
+///(buffer to small), it will be truncated.
+///
+///@param source The source stream.
+///@param buffer Target buffer, must contain '\0' initiallly before calling this function.
+///@param bufSize Size of the target buffer.
+///@param terminator The last character that shall be read, usually '\n'.
+///@return True if the terminating character was received.
+
 bool append_until(Stream& source, char* buffer, int bufSize, char terminator)
 {
     int data=source.read();
@@ -123,19 +123,11 @@ void check_ap_connection()
     }
 }
 
-
-/** 
- * Put new connections into the array and
- * send a welcome message.
- */
 void handle_new_connections()
 {
     WiFiClient client = tcpServer.available();
     if (client)
     {
-        //Serial.print(F("New connection from "));
-        //Serial.println(client.remoteIP().toString());
-        
         // Find a freee space in the array   
         for (int i = 0; i < MAX_TCP_CONNECTIONS; i++)
         {
@@ -158,7 +150,38 @@ void handle_new_connections()
 }
 
 
-/** Receive TCP messages and send echo back */
+/// @brief The function interprets the received TCP message which is related to the color setting command.
+/// The message string should have the format: "1,255,255,255" where 1 is indentifing the command followed by a comma and then the three RGB values in a range from 0 to 255
+/// @param message //containing the TCP message in the format: "1,255,255,255"(commandNumber,red value [0-255],Green value [0-255], blue value[0-255] ) where 255 is in this example a placeholder for a number. 
+/// @param r pointer to an uint8_t value which will be overwritten with the red result
+/// @param g pointer to an uint8_t value which will be overwritten with the green result
+/// @param b pointer to an uint8_t value which will be overwritten with the blue result
+GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
+    if(message.length()<13) //check if the received command has at least the expected amount of character: e.g. 1,255,255,255
+    {
+        return;
+    }
+    
+    String remainingMessage = message;
+    
+    int startIndex = remainingMessage.indexOf(',');
+    String RedString = remainingMessage.substring(startIndex+1,startIndex+4);
+    remainingMessage = remainingMessage.substring(startIndex+5);
+
+    startIndex = remainingMessage.indexOf(',');
+    String GreenString = remainingMessage.substring(startIndex+1,startIndex+4);
+    remainingMessage = remainingMessage.substring(startIndex+5);
+
+    startIndex = remainingMessage.indexOf(',');
+    String BlueString = remainingMessage.substring(startIndex+1,startIndex+4);
+    remainingMessage = remainingMessage.substring(startIndex+5);
+    
+    *r = prepareInput(RedString.toInt());
+    *g = prepareInput(GreenString.toInt());
+    *b = prepareInput(BlueString.toInt());
+    return;
+}
+
 void process_incoming_tcp()
 {   
     static int i=0; //always take the first client.
@@ -169,43 +192,25 @@ void process_incoming_tcp()
         if (append_until(clients[i],tcp_buffer[i],sizeof(tcp_buffer[i]),'\n'))
         {   
           String Message(tcp_buffer[i]);
-          if((strstr(tcp_buffer[i], "R")!=NULL)&&(strstr(tcp_buffer[i], "G")!=NULL)&&(strstr(tcp_buffer[i], "B")!=NULL)){
-            String RedString = Message.substring(Message.indexOf('R')+2,Message.indexOf('R')+5);
-            String GreenString = Message.substring(Message.indexOf('G')+2,Message.indexOf('G')+5);
-            String BlueString = Message.substring(Message.indexOf('B')+2,Message.indexOf('B')+5);
+        
+          uint8_t commandNumber = Message[0].toInt();
+          switch (commandNumber){
+            case 1:
+                uint8_t red=0, green=0 ,blue =0;
+                GetRGBFromTCP(Message,&red,&green,&blue);
+                uint8_t command[7] = { 0x01,0x07,0x01,red,green,blue,0x02};
+                Serial.write(command,7);
+                clients[i].println(F("ColorSet")); //optional for debug purpose
+                clients[i].print("R:"+String(red)+"; G:"+String(green)+"; B:"+String(blue));//optional for debug purpose
+                break;
 
-            uint8_t red = prepareInput(RedString.toInt());
-            uint8_t green = prepareInput(GreenString.toInt());
-            uint8_t blue = prepareInput(BlueString.toInt());
-            
-            uint8_t command[7] = { 0x01,0x07,0x01,red,green,blue,0x02};
-            Serial.write(command,7);
-            clients[i].println(F("ColorSet"));
-            clients[i].print("R:"+String(red)+"; G:"+String(green)+"; B:"+String(blue));
+            case 2:
+                break;
+
+            default:
+                break;
           }
-            
-            
-            // Send an echo back
-            clients[i].print(F("Echo: "));
-            clients[i].print(tcp_buffer[i]);
-
-
-            
-            // Execute some test commands
-            if (strstr(tcp_buffer[i], "on"))
-            {
-                uint8_t command[7] = { 0x01,0x07,0x01,0xFF,0xFF,0xFF,0x02};
-                Serial.write(command,7);
-                clients[i].println(F("LED is on"));                
-            }
-            else if (strstr(tcp_buffer[i], "off"))
-            {
-                uint8_t command[7] = { 0x01,0x07,0x01,0x00,0x00,0x00,0x02};
-                Serial.write(command,7);
-                clients[i].println(F("LED is off"));
-            }    
-            
-            // Clear the buffer to receive the next line
+          
             tcp_buffer[i][0]='\0';
         }
     }
@@ -216,24 +221,6 @@ void process_incoming_tcp()
         i=0;
     }
 }
-
-
-/*void ProcessTcpMessage(uint8_t Message[], int MessageLength) {
-  int expectedDataBytes = (int) Message[1];
-  uint8_t command = Message[2];
-
-  switch (command):
-  case 0x01:
-      uint8_t command[7] = { 0x01,0x07,0x01,Message[3],Message[4],Message[5],0x02}; //set colour
-      Serial.write(command,7);
-    break;
-  case 0x02:
-      uint8_t command[7] = { 0x01,0x04,0x02,0x02 }; //Message 
-  default:
-  break;
-}
-*/
-
 
 //ensure valid values for color setting
 int prepareInput(uint8_t colorValue){
