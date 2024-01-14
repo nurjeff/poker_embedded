@@ -156,10 +156,10 @@ void handle_new_connections()
 /// @param r pointer to an uint8_t value which will be overwritten with the red result
 /// @param g pointer to an uint8_t value which will be overwritten with the green result
 /// @param b pointer to an uint8_t value which will be overwritten with the blue result
-GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
+bool GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
     if(message.length()<13) //check if the received command has at least the expected amount of character: e.g. 1,255,255,255
     {
-        return;
+        return false;
     }
     
     String remainingMessage = message;
@@ -179,7 +179,36 @@ GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
     *r = prepareInput(RedString.toInt());
     *g = prepareInput(GreenString.toInt());
     *b = prepareInput(BlueString.toInt());
-    return;
+    return true;
+}
+
+
+/// @brief The function interprets the received TCP message which is related to the blink in color command.
+/// @param message Message of the format e.g."2,255,255,255,1000,1" the positioned argumends are: commandId,RedValue,GreenValue,BlueValue,Duration,Frequenz
+/// @param r pointer to an integer variable, the function will write the received red value to that variable.
+/// @param g  pointer to an integer variable, the function will write the received green value to that variable.
+/// @param b  pointer to an integer variable, the function will write the received blue value to that variable.
+/// @param durationMS pointer to an integer variable, the function will write the received duration of the blink process to that variable.
+/// @param frequenz pointer to an integer variable, the function will write the received frequenz in which the light should blink.
+/// @return true, if everything runs as expected, false, when there is an issue detected
+bool GetBlinkingFromTCP(string message,uint8_t * r,uint8_t * g, uint8_t * b, int* durationMS, int* frequenz){
+    if(!GetRGBFromTCP(message,r,g,b)){
+        return false;
+    }
+    
+    int startIndex=0;
+
+    for(int i=0;i<3){ //discard the beginning of the message, which contains the color information, which was already retrieved through the previous function call
+        startIndex = message.indexOf(',');
+        message = message.substring(startIndex+1);
+    }
+    int commaPosition = message.indexOf(',');
+    String durationString = message.substring(0,commaPosition-1);
+    String frequenzString = message.substring(commaPosition+1);
+
+    *durationMS = durationString.toInt();
+    *frequenz = frequenzString.toInt();
+    return true;
 }
 
 void process_incoming_tcp()
@@ -205,6 +234,13 @@ void process_incoming_tcp()
                 break;
 
             case 2:
+                uint8_t red=0, green=0 ,blue =0;
+                int duration =0, frequenz=0;
+                GetBlinkingFromTCP(Message,&red,&green,&blue,&duration,&frequenz);
+                
+                uint8_t command[9] = { 0x02,0x09,0x01,red,green,blue,duration,frequenz,0x02};
+                Serial.write(command,9);
+                clients[i].println(F("Blinking set")); //optional for debug purpose
                 break;
 
             default:
