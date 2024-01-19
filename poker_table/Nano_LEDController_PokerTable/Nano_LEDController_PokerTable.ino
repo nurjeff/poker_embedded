@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 //Initializing LED Pin
 #define led_red 3
 #define led_green 5
@@ -14,6 +16,13 @@ struct UART_rx        //Receive Buffer
   uint8_t read;
   uint8_t write;
 }UART_rx= {{}, 0, 0};
+
+
+struct ColorSet{
+  uint8_t R_value=0;
+  uint8_t G_value=0;
+  uint8_t B_value=0;
+} PreviousColor,CurrentColor;
 
 
 void setup() {
@@ -130,30 +139,46 @@ int UART_rx_work(){
     if(Befehl[2]==0x01){
       Serial.println("Command: 0x01");
       Serial.println("Colors: R:"+String(Befehl[3])+" G:"+String(Befehl[4])+" B:"+String(Befehl[3]));
-      SetRgbValues(Befehl[3],Befehl[4],Befehl[5]);      
+      SetRgbValues(Befehl[3],Befehl[4],Befehl[5]);
     }
+
+    if(Befehl[2]==0x02){
+      Serial.println("Command: 0x02");
+      SetBlinking(Befehl[3],Befehl[4],Befehl[5],Befehl[6],Befehl[7],Befehl[8],Befehl[9]);
+    }
+
+
     return 1;
   }
   return 0;
 }
 
+void SetBlinking(uint8_t red, uint8_t green, uint8_t blue, uint8_t duration_MSB,uint8_t duration_LSB, uint8_t frequenz_MSB, uint8_t frequenz_LSB){
+  
+    uint16_t duration = ((duration_MSB<<8) & 0xFF00) | (duration_LSB);
+    uint16_t frequenz = ((frequenz_MSB<<8) & 0xFF00) | (frequenz_LSB);
+    
+    int halfPeriod = 1000/frequenz; //calculate the time to be off and on for the blinking;
+    int repetitions = duration * frequenz / 1000; //duration is expected in ms
+
+    for(int i=0;i<repetitions;i++){
+        SetRgbValues(red,green,blue);
+        delay(halfPeriod);
+        CurrentColor = PreviousColor;
+        SetRgbValues(0,0,0);
+        delay(halfPeriod);
+        CurrentColor = PreviousColor;
+    }
+    SetRgbValues(CurrentColor.R_value ,CurrentColor.G_value,CurrentColor.B_value);
+}
+
 void SetRgbValues(uint8_t red,uint8_t green,uint8_t blue){
-  red = prepareInput(red);
-  green = prepareInput(green);
-  blue = prepareInput(blue);
-  Serial.println(red);
+  PreviousColor = CurrentColor;
+  CurrentColor.R_value = red;
+  CurrentColor.G_value = green;
+  CurrentColor.B_value = blue;
+
   analogWrite(led_red,red);
   analogWrite(led_green,green);
   analogWrite(led_blue,blue);
-}
-
-//ensure valid values for color setting
-int prepareInput(uint8_t colorValue){
-  if(colorValue>255){
-    colorValue =255;
-  }
-  if(colorValue <0){
-    colorValue=0;
-  }
-  return colorValue;
 }
