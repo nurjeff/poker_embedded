@@ -191,14 +191,14 @@ bool GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
 /// @param durationMS pointer to an integer variable, the function will write the received duration of the blink process to that variable. (0-65535)
 /// @param frequenz pointer to an integer variable, the function will write the received frequenz in which the light should blink.(0-65535)
 /// @return true, if everything runs as expected, false, when there is an issue detected
-bool GetBlinkingFromTCP(string message,uint8_t * r,uint8_t * g, uint8_t * b, int* durationMS, int* frequenz){
+bool GetBlinkingFromTCP(String message,uint8_t * r,uint8_t * g, uint8_t * b, int* durationMS, int* frequenz){
     if(!GetRGBFromTCP(message,r,g,b)){
         return false;
     }
     
     int startIndex=0;
 
-    for(int i=0;i<3){ //discard the beginning of the message, which contains the color information, which was already retrieved through the previous function call
+    for(int i=0;i<3;i++){ //discard the beginning of the message, which contains the color information, which was already retrieved through the previous function call
         startIndex = message.indexOf(',');
         message = message.substring(startIndex+1);
     }
@@ -211,6 +211,43 @@ bool GetBlinkingFromTCP(string message,uint8_t * r,uint8_t * g, uint8_t * b, int
     return true;
 }
 
+uint8_t getCommandNumber(String message){
+    int command = -1;
+    int end = message.indexOf(',');
+    message = message.substring(0,end);
+    command = message.toInt();
+    if((command<=0)||(command>255)){
+        command = 255;
+    }
+    return (uint8_t) command;    
+
+}
+
+void Command1_Execution(String Message){
+     uint8_t red=0, green=0 ,blue =0;
+                GetRGBFromTCP(Message,&red,&green,&blue);
+                uint8_t command[7] = { 0x01,0x07,0x01,red,green,blue,0x02};
+                Serial.write(command,7);
+                //clients[i].println(F("ColorSet")); //optional for debug purpose
+                //clients[i].print("R:"+String(red)+"; G:"+String(green)+"; B:"+String(blue));//optional for debug purpose
+}
+
+void Command2_Excecution(String Message){
+                uint8_t red=0, green=0 ,blue =0;
+                int duration =0, frequenz=0;
+                GetBlinkingFromTCP(Message,&red,&green,&blue,&duration,&frequenz);
+                uint8_t duration_MSB = ((duration >> 8) & 0xFF);
+                uint8_t duration_LSB = duration & 0xFF;
+                
+                uint8_t frequenz_MSB = ((frequenz >> 8) & 0xFF);
+                uint8_t frequenz_LSB = frequenz & 0xFF;
+
+                uint8_t command[11] = { 0x02,0x0B,0x01,red,green,blue,duration_MSB,duration_LSB,frequenz_MSB,frequenz_LSB,0x02};
+                Serial.write(command,11);
+                //clients[i].println(F("Blinking set")); //optional for debug purpose
+}
+
+
 void process_incoming_tcp()
 {   
     static int i=0; //always take the first client.
@@ -222,30 +259,14 @@ void process_incoming_tcp()
         {   
           String Message(tcp_buffer[i]);
         
-          uint8_t commandNumber = Message[0].toInt();
+          uint8_t commandNumber = getCommandNumber(Message);
           switch (commandNumber){
             case 1:
-                uint8_t red=0, green=0 ,blue =0;
-                GetRGBFromTCP(Message,&red,&green,&blue);
-                uint8_t command[7] = { 0x01,0x07,0x01,red,green,blue,0x02};
-                Serial.write(command,7);
-                clients[i].println(F("ColorSet")); //optional for debug purpose
-                clients[i].print("R:"+String(red)+"; G:"+String(green)+"; B:"+String(blue));//optional for debug purpose
+                    Command1_Execution(Message);
                 break;
 
             case 2:
-                uint8_t red=0, green=0 ,blue =0;
-                int duration =0, frequenz=0;
-                GetBlinkingFromTCP(Message,&red,&green,&blue,&duration,&frequenz);
-                uint8_t duration_MSB = ((duration >> 8) & 0xFF);
-                uint8_t duration_LSB = duration & 0xFF;
-                
-                uint8_t frequenz_MSB = ((frequenz >> 8) & 0xFF);
-                uint8_t frequenz_LSB = frequenz & 0xFF;
-
-                uint8_t command[9] = { 0x02,0x0B,0x01,red,green,blue,duration_MSB,duration_LSB,frequenz_MSB,frequenz_LSB,0x02};
-                Serial.write(command,9);
-                clients[i].println(F("Blinking set")); //optional for debug purpose
+                    Command2_Excecution(Message);
                 break;
 
             default:
