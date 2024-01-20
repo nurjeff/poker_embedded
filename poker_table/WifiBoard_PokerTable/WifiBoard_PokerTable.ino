@@ -4,16 +4,16 @@
 #define LED 2
 
 // Name and password of the WLAN access point
-#define SSID "Custom_SSID"
-#define PASSWORD "Custom_password"
+#define SSID "SSID"
+#define PASSWORD "Network Password"
 
 #define ErrorFlag_Wifi 2
 
 // Set your Static IP address
-IPAddress local_IP(192, 168, 0, 91); //IP address of poker table
+IPAddress local_IP(192, 168, 178, 91); //IP address of poker table
 
 // Set your Gateway IP address
-IPAddress gateway(192, 168, 0, 1);
+IPAddress gateway(192, 168, 178, 1);
 
 IPAddress subnet(255, 255, 0, 0);
 IPAddress primaryDNS(80, 69, 96, 12);   //optional
@@ -157,25 +157,23 @@ void handle_new_connections()
 /// @param g pointer to an uint8_t value which will be overwritten with the green result
 /// @param b pointer to an uint8_t value which will be overwritten with the blue result
 bool GetRGBFromTCP(String message, uint8_t * r,uint8_t * g, uint8_t * b){
-    if(message.length()<13) //check if the received command has at least the expected amount of character: e.g. 1,255,255,255
+    if(message.length()<7) //check if the received command has at least the expected amount of character: e.g. 1,255,255,255
     {
         return false;
     }
-    
+    clients[0].print(message);
     String remainingMessage = message;
-    
     int startIndex = remainingMessage.indexOf(',');
-    String RedString = remainingMessage.substring(startIndex+1,startIndex+4);
-    remainingMessage = remainingMessage.substring(startIndex+5);
+    int secondComma = remainingMessage.substring(startIndex+1).indexOf(',')+startIndex+1;
+    int thirdComma = remainingMessage.substring(secondComma+1).indexOf(',')+secondComma+1;
 
-    startIndex = remainingMessage.indexOf(',');
-    String GreenString = remainingMessage.substring(startIndex+1,startIndex+4);
-    remainingMessage = remainingMessage.substring(startIndex+5);
-
-    startIndex = remainingMessage.indexOf(',');
-    String BlueString = remainingMessage.substring(startIndex+1,startIndex+4);
-    remainingMessage = remainingMessage.substring(startIndex+5);
+    String RedString = remainingMessage.substring(startIndex+1,secondComma);
+    String GreenString = remainingMessage.substring(secondComma+1,thirdComma);
+    String BlueString = remainingMessage.substring(thirdComma+1);
     
+
+
+
     *r = prepareInput(RedString.toInt());
     *g = prepareInput(GreenString.toInt());
     *b = prepareInput(BlueString.toInt());
@@ -198,14 +196,16 @@ bool GetBlinkingFromTCP(String message,uint8_t * r,uint8_t * g, uint8_t * b, int
     
     int startIndex=0;
 
-    for(int i=0;i<3;i++){ //discard the beginning of the message, which contains the color information, which was already retrieved through the previous function call
+    for(int i=0;i<4;i++){ //discard the beginning of the message, which contains the color information, which was already retrieved through the previous function call
         startIndex = message.indexOf(',');
         message = message.substring(startIndex+1);
     }
     int commaPosition = message.indexOf(',');
-    String durationString = message.substring(0,commaPosition-1);
+    String durationString = message.substring(0,commaPosition);
     String frequenzString = message.substring(commaPosition+1);
-
+    clients[0].print("Duration:");
+    clients[0].print(durationString);
+    clients[0].print(frequenzString);
     *durationMS = durationString.toInt();
     *frequenz = frequenzString.toInt();
     return true;
@@ -230,6 +230,7 @@ void Command1_Execution(String Message){
                 Serial.write(command,7);
                 //clients[i].println(F("ColorSet")); //optional for debug purpose
                 //clients[i].print("R:"+String(red)+"; G:"+String(green)+"; B:"+String(blue));//optional for debug purpose
+                clients[0].print("Command 1 Executed");
 }
 
 void Command2_Excecution(String Message){
@@ -242,9 +243,10 @@ void Command2_Excecution(String Message){
                 uint8_t frequenz_MSB = ((frequenz >> 8) & 0xFF);
                 uint8_t frequenz_LSB = frequenz & 0xFF;
 
-                uint8_t command[11] = { 0x02,0x0B,0x01,red,green,blue,duration_MSB,duration_LSB,frequenz_MSB,frequenz_LSB,0x02};
+                uint8_t command[11] = { 0x01,0x0B,0x02,red,green,blue,duration_MSB,duration_LSB,frequenz_MSB,frequenz_LSB,0x02};
                 Serial.write(command,11);
                 //clients[i].println(F("Blinking set")); //optional for debug purpose
+                clients[0].print("Command 2 Executed");
 }
 
 
@@ -257,9 +259,13 @@ void process_incoming_tcp()
         // Collect characters until line break
         if (append_until(clients[i],tcp_buffer[i],sizeof(tcp_buffer[i]),'\n'))
         {   
+          clients[i].print("Message Received");
           String Message(tcp_buffer[i]);
         
           uint8_t commandNumber = getCommandNumber(Message);
+          
+          clients[i].println("Command: "+ String(commandNumber)); //optional for debug purpose
+          //Message = Message.substring(Message.indexOf(",")+1); //remove Command number from message
           switch (commandNumber){
             case 1:
                     Command1_Execution(Message);
