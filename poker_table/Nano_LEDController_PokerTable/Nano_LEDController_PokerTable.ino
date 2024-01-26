@@ -18,6 +18,7 @@ struct UART_rx        //Receive Buffer
 }UART_rx= {{}, 0, 0};
 
 
+/// @brief A struct that contains the three color channel R,G,B from 0-255
 struct ColorSet{
   uint8_t R_value=0;
   uint8_t G_value=0;
@@ -45,7 +46,7 @@ void loop() {
   UART_rx_work();
   Serial.println("readPointer: "+String(UART_rx.read,HEX)+"; writePointer: "+String(UART_rx.write,HEX));
   
-  delay(1000);
+  //delay(1000);
 }
 
 int UART_rx_in (uint8_t input){
@@ -153,6 +154,14 @@ int UART_rx_work(){
   return 0;
 }
 
+/// @brief Set the connected LED strip into a blinking mode for a given duration and switch back to the original color afterwards. During that time, the color switches back and forth between the orignal set color and the entered color in the function. If the same color is set for blinking, no blinking will occur.
+/// @param red red channel for the blinking color (0-255)
+/// @param green green channel for the blinking color (0-255)
+/// @param blue blue channel for the blinking color (0-255)
+/// @param duration_MSB MSB of the duration in milli seconds.
+/// @param duration_LSB LSB of the duration in milli seconds.
+/// @param frequenz_MSB LSB of the frequency
+/// @param frequenz_LSB MSB of the frequency
 void SetBlinking(uint8_t red, uint8_t green, uint8_t blue, uint8_t duration_MSB,uint8_t duration_LSB, uint8_t frequenz_MSB, uint8_t frequenz_LSB){
   
     uint16_t duration = ((duration_MSB<<8) & 0xFF00) | (duration_LSB);
@@ -172,6 +181,10 @@ void SetBlinking(uint8_t red, uint8_t green, uint8_t blue, uint8_t duration_MSB,
     SetRgbValues(CurrentColor.R_value ,CurrentColor.G_value,CurrentColor.B_value);
 }
 
+/// @brief function that sets a connected RGB strip to a new color, given by the three color channels
+/// @param red red channel for the blinking color (0-255)
+/// @param green green channel for the blinking color (0-255)
+/// @param blue blue channel for the blinking color (0-255)
 void SetRgbValues(uint8_t red,uint8_t green,uint8_t blue){
   PreviousColor = CurrentColor;
   CurrentColor.R_value = red;
