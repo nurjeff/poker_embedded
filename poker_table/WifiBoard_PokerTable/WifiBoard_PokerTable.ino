@@ -5,7 +5,7 @@
 
 // Name and password of the WLAN access point
 #define SSID "SSID"
-#define PASSWORD "Network Password"
+#define PASSWORD "PW"
 
 #define ErrorFlag_Wifi 2
 
@@ -250,6 +250,17 @@ void Command2_Excecution(String Message){
 }
 
 
+/// @brief Function that implements the functionality of Command 3:
+/// The color will be transmitted and will be saved on the EEPROM of the Arduino, o load the same color
+/// @param Message 
+void Command3_Excecition(String Message){
+    uint8_t red=0, green=0 ,blue =0;
+    GetRGBFromTCP(Message,&red,&green,&blue);
+    uint8_t command[7] = { 0x01,0x07,0x03,red,green,blue,0x02};
+    Serial.write(command,7);
+    clients[0].print("Command 3 Executed");
+}
+
 void process_incoming_tcp()
 {   
     static int i=0; //always take the first client.
@@ -259,24 +270,26 @@ void process_incoming_tcp()
         // Collect characters until line break
         if (append_until(clients[i],tcp_buffer[i],sizeof(tcp_buffer[i]),'\n'))
         {   
-          clients[i].print("Message Received");
-          String Message(tcp_buffer[i]);
+            clients[i].print("Message Received");
+            String Message(tcp_buffer[i]);
         
-          uint8_t commandNumber = getCommandNumber(Message);
+            uint8_t commandNumber = getCommandNumber(Message);
           
-          clients[i].println("Command: "+ String(commandNumber)); //optional for debug purpose
-          //Message = Message.substring(Message.indexOf(",")+1); //remove Command number from message
-          switch (commandNumber){
-            case 1:
-                    Command1_Execution(Message);
-                break;
+            clients[i].println("Command: "+ String(commandNumber)); //optional for debug purpose          
+            switch (commandNumber){
+                case 1:
+                        Command1_Execution(Message);
+                    break;
 
-            case 2:
-                    Command2_Excecution(Message);
-                break;
+                case 2:
+                        Command2_Excecution(Message);
+                    break;
+                case 3:
+                        Command3_Excecition(Message);
+                        break;
 
-            default:
-                break;
+                default:
+                    break;
           }
           
             tcp_buffer[i][0]='\0';

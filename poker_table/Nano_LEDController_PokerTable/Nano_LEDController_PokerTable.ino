@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <EEPROM.h>
 
 //Initializing LED Pin
 #define led_red 3
@@ -33,6 +34,8 @@ void setup() {
   pinMode(led_green, OUTPUT);
   pinMode(led_blue, OUTPUT);
   Serial.begin(9600);
+  initializeTable(); //load color from EEPROM and set it to the table;
+  SetBlinking(255,0,0,0x03,0xE8,0,4);
 }
 void loop() {
 
@@ -45,8 +48,6 @@ void loop() {
   }
   UART_rx_work();
   Serial.println("readPointer: "+String(UART_rx.read,HEX)+"; writePointer: "+String(UART_rx.write,HEX));
-  
-  //delay(1000);
 }
 
 int UART_rx_in (uint8_t input){
@@ -148,11 +149,39 @@ int UART_rx_work(){
       SetBlinking(Befehl[3],Befehl[4],Befehl[5],Befehl[6],Befehl[7],Befehl[8],Befehl[9]);
     }
 
+    if(Befehl[2]==0x03){
+      Serial.println("Command: 0x03");
+      SetRgbValues(Befehl[3],Befehl[4],Befehl[5]); //set the color on the LED strip
+      SaveColorToEeprom(Befehl[3],Befehl[4],Befehl[5]);
+
+    }
 
     return 1;
   }
   return 0;
 }
+
+void SaveColorToEeprom(uint8_t r,uint8_t g,uint8_t b){
+  EEPROM.update(0,r);
+  EEPROM.update(1,g);
+  EEPROM.update(2,b);
+  
+}
+
+ColorSet loadColorFromEprom(){
+  ColorSet loadedSet;
+  loadedSet.R_value = EEPROM.read(0);
+  loadedSet.G_value = EEPROM.read(1);
+  loadedSet.B_value = EEPROM.read(2);
+  return loadedSet;
+}
+
+void initializeTable(){
+   ColorSet colorToSet =loadColorFromEprom();
+   SetRgbValues(colorToSet.R_value,colorToSet.G_value, colorToSet.B_value);
+}
+
+
 
 /// @brief Set the connected LED strip into a blinking mode for a given duration and switch back to the original color afterwards. During that time, the color switches back and forth between the orignal set color and the entered color in the function. If the same color is set for blinking, no blinking will occur.
 /// @param red red channel for the blinking color (0-255)
